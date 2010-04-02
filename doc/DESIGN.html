@@ -1,0 +1,220 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+><head
+  ><title
+    >Divisi architecture</title
+    ><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"
+     /><meta name="generator" content="pandoc"
+     /><meta name="author" content="Kenneth Arnold (kcarnold@media.mit.edu)"
+     /><meta name="date" content="February 25, 2009"
+     /></head
+  ><body
+  ><h1 class="title"
+    >Divisi architecture</h1
+    ><p
+    >(First written January 2008)</p
+    ><h1 id="introduction"
+    >Introduction</h1
+    ><p
+    >Divisi ('SVD' backwards with 'i's) is built around a <em
+      >tensor-view stack</em
+      >. So for example, a sparse tensor stores raw numeric data. A layer above it presents a normalized view of that tensor. Another layer above that presents a labeled view, where numeric indices are mapped to informative labels.</p
+    ><h1 id="tensor"
+    >Tensor</h1
+    ><h2 id="overview"
+    >Overview</h2
+    ><p
+    >A Tensor is a <code
+      >dict</code
+      >-like mapping from tuples of integers to floats. Tensors implement the <code
+      >dict</code
+      > interface (including <code
+      >iterkeys</code
+      > and <code
+      >iteritems</code
+      >). They also implement a math interface similar to NumPy's <code
+      >matrix</code
+      >. Finally, they implement various methods to convert to other types of tensors.</p
+    ><p
+    >Any Tensor should be safe to <code
+      >pickle</code
+      >.</p
+    ><h2 id="indexing"
+    >Indexing</h2
+    ><p
+    >Indices are assumed to be contiguous positive integers starting at 0. i.e., a tensor with a single element (1000, 1000, 2) has dimensions 1001 by 1001 by 3.</p
+    ><p
+    >The number of indices specified must always match the number of dimensions.</p
+    ><p
+    >Some tensors (<code
+      >LabeledTensor</code
+      >s) are instead indexed by other labels.</p
+    ><h2 id="retrieval"
+    >Retrieval</h2
+    ><p
+    >Retrieving items from Tensors uses <code
+      >dict</code
+      > syntax:</p
+    ><pre
+    ><code
+      >tensor[2, 4, 5]
+</code
+      ></pre
+    ><p
+    >Getting a single item (all indices specified) returns a <code
+      >float</code
+      >. Getting a slice (e.g., <code
+      >tensor[2, :, 5]</code
+      >) returns a tensor of the same kind, with fully specified dimensions collapsed. (For the example, the result would be a 1D tensor.)</p
+    ><p
+    >You should not rely on whether or not a slice is a view on the original Tensor (like NumPy). (FIXME: this seems unreasonable.)</p
+    ><h2 id="attributes"
+    >Attributes</h2
+    ><dl
+    ><dt
+      ><code
+	>ndim</code
+	></dt
+      ><dd
+      >number of dimensions</dd
+      ><dt
+      ><code
+	>shape</code
+	></dt
+      ><dd
+      >dimensions. <code
+	>len(shape)</code
+	> = <code
+	>ndim</code
+	></dd
+      ></dl
+    ><h2 id="representation"
+    >Representation</h2
+    ><p
+    >Multiple representations of the data in a Tensor are possible. Call a conversion method of one tensor to convert it to another. Examples to follow.</p
+    ><h2 id="math"
+    >Math</h2
+    ><p
+    >The following math operations are implemented so far:</p
+    ><ul
+    ><li
+      >multiplication by a scalar: multiplies all elements by the scalar</li
+      ><li
+      >multiplication by a vector (1-D Tensor): performs matrix multiplication. Since the shape representation does not specify if a vector is a row or column vector, a vector on the left is considered a row vector and a vector on the right a column vector.</li
+      ><li
+      >multiplication of two 2-D Tensors performs matrix multiplication.</li
+      ><li
+      ><code
+	>tensordot</code
+	> method performs tensor multiplication. (FIXME: we don't have Tensor x matrix yet)</li
+      ></ul
+    ><p
+    >Not yet implemented, or partially implemented (though not difficult): * Addition and subtraction (return the denser of the two) * in-place addition forces type retention</p
+    ><h2 id="gotchas"
+    >Gotchas</h2
+    ><p
+    >No change notification is implemented. Copies or views on tensors may be shallower than you expect. Try to load all your data in first, then do the math on it.</p
+    ><p
+    ><code
+      >DenseTensor</code
+      >s are almost NumPy's <code
+      >ndarray</code
+      >s, but not quite. For example, operations between the two may not work. (Actually, most will, if the <code
+      >DenseTensor</code
+      > is on the left.) Get in the habit of wrapping <code
+      >ndarray</code
+      >s with <code
+      >DenseTensor(array)</code
+      >.</p
+    ><h1 id="tensor-storage-classes"
+    >Tensor storage classes</h1
+    ><ul
+    ><li
+      ><code
+	>DictTensor</code
+	>: sparse (<code
+	>dict</code
+	>ionary backend)</li
+      ><li
+      ><code
+	>DenseTensor</code
+	>: dense storage (NumPy <code
+	>ndarray</code
+	>)</li
+      ><li
+      >CSRTensor: compressed sparse rows. read-only. 2D only.</li
+      ><li
+      >CSCTensor: &quot; &quot; cols. &quot;. &quot;. (Not yet implemented)</li
+      ></ul
+    ><h1 id="views"
+    >Views</h1
+    ><h2 id="overview-1"
+    >Overview</h2
+    ><p
+    >A <code
+      >View</code
+      > is a different way to view a Tensor (or another <code
+      >View</code
+      >). Each <code
+      >View</code
+      > has a <code
+      >tensor</code
+      > attribute that holds the underlying tensor. Generally, a view should behave like just another tensor. If a method is not implemented by the view, the <code
+      >View</code
+      > base class delegates to the tensor.</p
+    ><h2 id="normalizedview"
+    >NormalizedView</h2
+    ><p
+    >A <code
+      >NormalizedView</code
+      > presents a (read-only) normalized view of the underlying tensor. It maintains a <code
+      >norms</code
+      > attribute that stores the sum of squares along each specified dimension.</p
+    ><p
+    >The normalization should be Euclidean norms along the specified dimensions.</p
+    ><p
+    >The routines that convert to packed representations are special-cased to use the norms directly, for efficiency.</p
+    ><h2 id="labeledview"
+    >LabeledView</h2
+    ><p
+    >A <code
+      >LabeledView</code
+      > associates each numeric index of each dimension with a label, which can be of any type. Alternately, the labels for a dimension can be specified as <code
+      >None</code
+      > to indicate that no labeling is done on that dimension (i.e., numerical indices are still used).</p
+    ><p
+    >All operations are passed down to the underlying tensor, then the result wrapped in a <code
+      >LabeledView</code
+      >. So all operations that would ordinarily return a tensor return a labeled view of the result.</p
+    ><p
+    >Labels must match for all math operations.</p
+    ><p
+    >The <code
+      >index</code
+      >, <code
+      >indices</code
+      >, <code
+      >label</code
+      >, and <code
+      >labels</code
+      > methods map between labels and indices.</p
+    ><p
+    >FIXME: describe OrderedSet</p
+    ><h2 id="unfoldedview"
+    >UnfoldedView</h2
+    ><p
+    >FIXME</p
+    ><h1 id="svd-math"
+    >SVD math</h1
+    ><ul
+    ><li
+      >SVD runs on a tensor, unfolds down to 2d, converts each unfolding to CSC form and runs SVDLIBC on each<ul
+	><li
+	  >stores results in an SVDResults data structure.</li
+	  ></ul
+	></li
+      ></ul
+    ></body
+  ></html
+>
+

@@ -1,0 +1,4 @@
+include svdlib/*.pyx
+include svdlib/*.h
+include *.txt
+recursive-include doc *.txt *.py

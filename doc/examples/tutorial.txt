@@ -1,0 +1,90 @@
+% Tutorial example
+
+NOTE: This is unfinished! It took a lot more setup than I (Ken)
+thought it would. If you'd like to finish it, perhaps to improve your
+own understanding of the SVD, please go right ahead ;)
+
+# Setup
+
+Imagine a small world with certain types of things:
+
+*   animals
+*   plants
+*   places
+
+and various relationships between them:
+
+*   animal *Eats* plant
+*   animal *Eats* animal
+*   animal *LivesIn* place
+*   place *Near* place
+*   plant *In* place
+*   plant *Near* place
+*   animal *In* place
+*   animal *Near* place
+
+That should keep things interesting enough.
+
+Our world will have lots of animals, places, and plants, but from a
+few sorts of categories:
+
+*   animals:
+    *   carnivores (eat only other animals)
+    *   herbivores (eat only plants)
+    *   omnivores (eat anything)
+*   places:
+    *   aquatic
+    *   marshy
+    *   dry
+*   plants:
+    *   aquatic
+    *   marshy
+    *   dry
+
+We'll first make a bunch of places. We'll just lay them out on a 5x10
+grid, which we'll index by coordinates 0 through 9. The upper left
+corner -- starting at (0,0), extending to the (3,0)-(0,3) diagonal --
+will be aquatic, the mirror images on the bottom left will be dry, and
+all the remaining area will be marshy.
+
+    a = 'aquatic'
+    m = 'marshy'
+    d = 'dry'
+    #        0 1 2 3 4 5 6 7 8 9
+    land = [[a a a a m m d d d d], # 0
+            [a a a m m d d d d d], # 1
+            [a a m m d d d d d d], # 2
+            [a m m d d d d d d d], # 3
+            [m m d d d d d d d d], # 4
+            [m d d d d d d d d d]] # 5
+
+Now we can start building the semantic network. A useful
+representation of a semantic network is *triple*s: the triple
+(**concept1**, **relation**, **concept2**) represents a connection
+between **concept1** and **concept2** of type **relation**. Divisi
+includes a data structure useful for holding this data: the
+*Tensor*. Depending on how many of the possible connections we
+actually have data about (how *sparse* the data is), we can choose
+between various representations. Since we won't assume that we know
+everything in our demo world, we'll use a sparse tensor.
+
+Mathematical tensors are generally indexed by numbers, but Divisi
+provides a handy layer (*LabeledView*) on top of the math that lets us
+use human-readable *labels* for the numbers. So instead of `(26, 63,
+11)`, we can use `(carnivore11, Eats, aquaticplant2)`. Divisi's
+`SparseLabeledTensor` class provides a pre-built stack of a labeled
+view of a sparse tensor. Since we're storing triples, we'll use a
+3-dimensional tensor:
+
+    from divisi.labeled_tensor import SparseLabeledTensor
+    data = SparseLabeledTensor(ndim=3)
+
+    # We can then access elements like a Python dictionary:
+    # data['carnivore11', 'Eats', 'aquaticplant2'] = 1
+
+We'll make the weight of the
+*Near* relation equal to the reciprocal of the distance between
+them:
+
+    places = ['place_%d_%d' % (row, col) for row in range(5) for col in range(10)]
+    

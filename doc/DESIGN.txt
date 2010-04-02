@@ -1,0 +1,107 @@
+% Divisi architecture
+% Kenneth Arnold (kcarnold@media.mit.edu)
+% February 25, 2009
+
+(First written January 2008)
+
+# Introduction
+
+Divisi ('SVD' backwards with 'i's) is built around a _tensor-view stack_. So for example, a sparse tensor stores raw numeric data. A layer above it presents a normalized view of that tensor. Another layer above that presents a labeled view, where numeric indices are mapped to informative labels.
+
+# Tensor
+
+## Overview
+
+A Tensor is a `dict`-like mapping from tuples of integers to floats. Tensors implement the `dict` interface (including `iterkeys` and `iteritems`). They also implement a math interface similar to NumPy's `matrix`. Finally, they implement various methods to convert to other types of tensors.
+
+Any Tensor should be safe to `pickle`.
+
+## Indexing
+
+Indices are assumed to be contiguous positive integers starting at 0. i.e., a tensor with a single element (1000, 1000, 2) has dimensions 1001 by 1001 by 3.
+
+The number of indices specified must always match the number of dimensions.
+
+Some tensors (`LabeledTensor`s) are instead indexed by other labels.
+
+## Retrieval
+
+Retrieving items from Tensors uses `dict` syntax:
+
+    tensor[2, 4, 5]
+
+Getting a single item (all indices specified) returns a `float`. Getting a slice (e.g., `tensor[2, :, 5]`) returns a tensor of the same kind, with fully specified dimensions collapsed. (For the example, the result would be a 1D tensor.)
+
+You should not rely on whether or not a slice is a view on the original Tensor (like NumPy). (FIXME: this seems unreasonable.)
+
+## Attributes
+`ndim`
+:   number of dimensions
+`shape`
+:   dimensions. `len(shape)` = `ndim`
+
+## Representation
+
+Multiple representations of the data in a Tensor are possible. Call a conversion method of one tensor to convert it to another. Examples to follow.
+
+## Math
+
+The following math operations are implemented so far:
+
+*   multiplication by a scalar: multiplies all elements by the scalar
+*   multiplication by a vector (1-D Tensor): performs matrix multiplication. Since the shape representation does not specify if a vector is a row or column vector, a vector on the left is considered a row vector and a vector on the right a column vector.
+*   multiplication of two 2-D Tensors performs matrix multiplication.
+*   `tensordot` method performs tensor multiplication. (FIXME: we don't have Tensor x matrix yet)
+
+Not yet implemented, or partially implemented (though not difficult):
+*   Addition and subtraction (return the denser of the two)
+*    in-place addition forces type retention
+
+## Gotchas
+
+No change notification is implemented. Copies or views on tensors may be shallower than you expect. Try to load all your data in first, then do the math on it.
+
+`DenseTensor`s are almost NumPy's `ndarray`s, but not quite. For example, operations between the two may not work. (Actually, most will, if the `DenseTensor` is on the left.) Get in the habit of wrapping `ndarray`s with `DenseTensor(array)`.
+
+
+# Tensor storage classes
+
+*    `DictTensor`: sparse (`dict`ionary backend)
+*    `DenseTensor`: dense storage (NumPy `ndarray`)
+*    CSRTensor: compressed sparse rows. read-only. 2D only.
+*    CSCTensor:  " " cols. ". ". (Not yet implemented)
+
+# Views
+
+## Overview
+
+A `View` is a different way to view a Tensor (or another `View`). Each `View` has a `tensor` attribute that holds the underlying tensor. Generally, a view should behave like just another tensor. If a method is not implemented by the view, the `View` base class delegates to the tensor.
+
+## NormalizedView
+
+A `NormalizedView` presents a (read-only) normalized view of the underlying tensor. It maintains a `norms` attribute that stores the sum of squares along each specified dimension.
+
+The normalization should be Euclidean norms along the specified dimensions.
+
+The routines that convert to packed representations are special-cased to use the norms directly, for efficiency.
+
+## LabeledView
+
+A `LabeledView` associates each numeric index of each dimension with a label, which can be of any type. Alternately, the labels for a dimension can be specified as `None` to indicate that no labeling is done on that dimension (i.e., numerical indices are still used).
+
+All operations are passed down to the underlying tensor, then the result wrapped in a `LabeledView`. So all operations that would ordinarily return a tensor return a labeled view of the result.
+
+Labels must match for all math operations.
+
+The `index`, `indices`, `label`, and `labels` methods map between labels and indices.
+
+FIXME: describe OrderedSet
+
+## UnfoldedView
+
+FIXME
+
+# SVD math
+
+*   SVD runs on a tensor, unfolds down to 2d, converts each unfolding to CSC form and runs SVDLIBC on each
+    * stores results in an SVDResults data structure.

@@ -1,0 +1,22 @@
+3-tensor x_2 matrix example
+
+T is k_0 by k_1 by k_2
+A is n_0 by n_1 by n_2
+
+U_0^T is k_0 by n_0
+U_1^T is k_1 by n_1
+U_2^T is k_2 by n_2
+
+compute A x_2 U_2
+
+result is n_0 by n_1 by k_2
+
+for i in range(n_0):
+  for j in range(n_1):
+    result[i,j,:] = dot(matrix, tensor[i,j,:])
+
+    -or-
+
+    for k in range(n_2):
+      for m in range(k_2):
+        result[i,j,m] += tensor[i,j,k] * matrix[m, k]
