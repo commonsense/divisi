@@ -1,4 +1,6 @@
 *.pyc
+*.pyd
+*.so
 build
 Divisi.egg-info/
 dist
